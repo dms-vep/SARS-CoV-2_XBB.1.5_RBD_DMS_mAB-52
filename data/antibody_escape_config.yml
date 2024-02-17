@@ -1,0 +1,349 @@
+# Configurations for determining effects of mutations on assays such as antibody
+# escape, ACE2 binding from soluble ACE2 neutralization, etc.
+# Note that in the configuration for individual selections, "antibody" is used
+# as a synonym for any treatment (ACE2, heat, etc), and "no-antibody" is
+# used as a synonym for the untreated conditions.
+
+# --------------------------------------------------------------------------------------
+# Define the selections
+# --------------------------------------------------------------------------------------
+
+# `assays` is keyed by assay (eg, "antibody_escape", "ACE2_binding", etc). Values are:
+#    - `title`: title used for selection in docs
+#    - `selections`: name of key used to define all selections for this assay
+#    - `averages`: name of key used to define averages across selections for this assay.
+#       Leave out this key if not taking averages.
+#    - `prob_escape_scale`: the scale used for the y-axis when plotting prob escape as
+#      a function of concentration. Typically symlog if all values close to zero, linear
+#      otherwise. Should be in the form of keyword arguments to `altair.Scale`.
+#    - `scale_stat`: scale the statistic being estimated for mutation effects by this
+#      number. Typically is 1 (no scaling) unless you want negative values to indicate a
+#      favorable effect (as for soluble ACE2 selections), in which case use -1.
+#    - `stat_name`: name assigned to statistic, eg, "escape" or "ACE2 binding".
+
+assays:
+  antibody_escape:
+    title: Antibody/serum escape
+    selections: antibody_selections
+    averages: avg_antibody_escape
+    prob_escape_scale:
+      type: symlog
+      constant: 0.04
+    scale_stat: 1
+    stat_name: escape
+  ACE2_binding:
+    title: ACE2 binding
+    selections: ACE2_selections
+    averages: avg_ACE2_binding
+    prob_escape_scale:
+      type: linear
+    scale_stat: -1
+    stat_name: ACE2 binding
+
+# --------------------------------------------------------------------------------------
+# Configuration for each antibody or soluble ACE2 selection experiment.
+# --------------------------------------------------------------------------------------
+
+# `antibody_selections` is keyed by name of each selection experiment, which includes a
+# no-antibody control samples and one or more antibody samples. These should typically
+# be from the same library and run on same date. Selection experiments are recommended
+# to be named as <Library>-<date as YYMMDD>-<description (eg, antibody)>-<replicate>.
+# Each selection experiment should in turn provide the following keys:
+#  - `neut_standard_name`: name of neutralization standard in `neut_standard_barcodes`
+#  - `no_antibody_sample`: name of the no-antibody sample
+#  - `antibody_samples`: a dict keyed by sample name with values of:
+#    * `concentration`: the concentration of the antibody
+#    * `use_in_fit`: whether to use this sample in the `polyclonal` fit
+#  - `prob_escape_filters`: dict giving filters of prob_escape values to use for fitting
+#  - `polyclonal_params`: dict giving parameters for `polyclonal` model fitting.
+#  - `escape_plot_kwargs`: dict giving parameters for `polyclonal` escape plot
+#  - `plot_hide_stats`: dict giving data frames with stats for slider to hide mutations
+# The `use_in_fit` option exists because you may decide that some samples are outside
+# the preferred neutralization range to include in the fit, so if `use_in_fit: false`
+# then functional scores are computed and plotted but it is not included in the fit.
+
+# default prob_escape filters
+prob_escape_filters_default: &prob_escape_filters_default
+  # error if sample used in fit doesn't have >= this many neut standard counts and
+  # >= this fraction of all counts from neut standard.
+  min_neut_standard_count: 1000
+  min_neut_standard_frac: 0.0001
+  # Only retain for fitting variants with at least this many counts and this fraction
+  # of total counts in the no-antibody sample **OR** the indicated counts and fraction
+  # of total counts in the antibody sample.
+  min_no_antibody_count: 20  # make bigger for real experiments, say 20
+  min_no_antibody_frac: 0.000001  # make smaller for large libraries, say ~0.1 / (library size)
+  min_antibody_count: 100  # make bigger for real experiments, say 100
+  min_antibody_frac: 0.0001  # make smaller for large libraries, say ~10 / (library size)
+  # For averaging and plotting the mean probability (fraction) escape across variants, use
+  # these cutoffs:
+  max_aa_subs: 3  # group variants with >= this many substitutions
+  clip_uncensored_prob_escape: 5  # clip uncensored prob escape values at this max
+
+# default parameters for `polyclonal` model fitting
+polyclonal_params_default: &polyclonal_params_default
+  n_epitopes: 1  # fit this many epitopes, also fit all numbers less than this and plot
+  spatial_distances: results/spatial_distances/spatial_distances.csv  # CSV with residue distances for spatial regularization, or null
+  fit_kwargs:  # keyword arguments to `Polyclonal.fit`
+    reg_escape_weight: 0.1
+    reg_spread_weight: 0.25
+    reg_activity_weight: 1.0
+    logfreq: 200
+
+# keyword arguments to `Polyclonal.mut_escape_plot`
+escape_plot_kwargs_default: &escape_plot_kwargs_default
+  addtl_slider_stats:
+    times_seen: 4
+  addtl_tooltip_stats:
+    - sequential_site
+  heatmap_max_at_least: 2
+  heatmap_min_at_least: -2
+  heatmap_max_fixed: 2.3
+  heatmap_min_fixed: -2
+  init_floor_at_zero: false
+  init_site_statistic: sum
+  site_zoom_bar_color_col: region  # supplied in `site_numbering_map`
+  sites_to_show: 
+    include_range: 
+      - 331
+      - 531
+
+# Specify any statistics (usually functional effects) for which you want to enable
+# sliders that hide data. Keyed by statistic name, then next dict gives:
+#   - `csv`: CSV file with the data, should have columns "site" and "mutant"
+#   - `csv_col`: column in the CSV with the data
+#   - `init`: initial value of slider
+plot_hide_stats_default: &plot_hide_stats_default
+  functional effect:
+    csv: results/func_effects/averages/293T_high_ACE2_entry_func_effects.csv
+    csv_col: effect
+    init: -1.5
+    min_filters:
+      times_seen: 4
+  ACE2 binding:
+    csv: results/ACE2_binding/averages/monomeric_ACE2_mut_effect.csv
+    csv_col: ACE2 binding_mean
+    init: -1.5
+    min_filters:
+      times_seen: 4
+
+# define the antibody selections
+antibody_selections:
+  # --------------------------------------------------------------------------------------
+  Lib1-240216-antibody_52:
+    neut_standard_name: neut_standard
+    prob_escape_filters: *prob_escape_filters_default
+    polyclonal_params: *polyclonal_params_default
+    escape_plot_kwargs: *escape_plot_kwargs_default
+    plot_hide_stats: *plot_hide_stats_default
+    no_antibody_sample: Lib1-240216-no-antibody_control
+    antibody_samples:
+     Lib1-240216-antibody_52_5.3:
+      concentration: 5.3
+      use_in_fit: true
+     Lib1-240216-antibody_52_21.3:
+      concentration: 21.8
+      use_in_fit: true
+  Lib2-240216-antibody_52:
+    neut_standard_name: neut_standard
+    prob_escape_filters: *prob_escape_filters_default
+    polyclonal_params: *polyclonal_params_default
+    escape_plot_kwargs: *escape_plot_kwargs_default
+    plot_hide_stats: *plot_hide_stats_default
+    no_antibody_sample: Lib2-240216-no-antibody_control
+    antibody_samples:
+     Lib2-240216-antibody_52_5.3:
+      concentration: 5.3
+      use_in_fit: true
+     Lib2-240216-antibody_52_21.3:
+      concentration: 21.8
+      use_in_fit: true
+# --------------------------------------------------------------------------------------
+
+
+# Note that for soluble ACE2 binding selections, you define selection experiments
+# exactly analogously to `antibody_selections` in `ACE2_selections`, using `antibody`
+# as a synonym for the soluble ACE2.
+
+# Define some defaults slightly different than from antibody selections
+
+# default parameters for `polyclonal` model fitting for ACE2 binding
+ACE2_polyclonal_params_default: &ACE2_polyclonal_params_default
+  n_epitopes: 1
+  spatial_distances: null
+  fit_kwargs:  # keyword arguments to `Polyclonal.fit`
+    reg_escape_weight: 0.1
+    reg_spread_weight: 0
+    reg_activity_weight: 1.0
+    logfreq: 200
+
+# default stats to hide cells on plot of ACE2 binding
+ACE2_plot_hide_stats_default: &ACE2_plot_hide_stats_default
+  functional effect:
+    csv: results/func_effects/averages/293T_high_ACE2_entry_func_effects.csv
+    csv_col: effect
+    init: -1.5
+    min_filters:
+      times_seen: 4
+
+# Define the ACE2 selections
+ACE2_selections:
+  Lib1-230615-monomeric-ACE2:
+    neut_standard_name: neut_standard
+    prob_escape_filters: *prob_escape_filters_default
+    polyclonal_params: *ACE2_polyclonal_params_default
+    escape_plot_kwargs: *escape_plot_kwargs_default
+    plot_hide_stats: *ACE2_plot_hide_stats_default
+    no_antibody_sample: Lib1-230615-no-antibody-control-medium-ACE2
+    antibody_samples:
+     Lib1-230615-antibody-monomeric-ACE2-2.88:
+      concentration: 2.88
+      use_in_fit: true
+     Lib1-230615-antibody-monomeric-ACE2-8.633016:
+      concentration: 8.633
+      use_in_fit: true
+     Lib1-230615-antibody-monomeric-ACE2-25.899048:
+      concentration: 25.89
+      use_in_fit: true
+     Lib1-230615-antibody-monomeric-ACE2-77.697144:
+      concentration: 77.69
+      use_in_fit: true
+     Lib1-230615-antibody-monomeric-ACE2-233.091432:
+      concentration: 233.09
+      use_in_fit: true
+
+  Lib2-230615-monomeric-ACE2:
+    neut_standard_name: neut_standard
+    prob_escape_filters: *prob_escape_filters_default
+    polyclonal_params: *ACE2_polyclonal_params_default
+    escape_plot_kwargs: *escape_plot_kwargs_default
+    plot_hide_stats: *ACE2_plot_hide_stats_default
+    no_antibody_sample: Lib2-230615-no-antibody-control-medium-ACE2
+    antibody_samples:
+     Lib2-230615-antibody-monomeric-ACE2-2.88:
+      concentration: 2.88
+      use_in_fit: true
+     Lib2-230615-antibody-monomeric-ACE2-8.633016:
+      concentration: 8.633
+      use_in_fit: true
+     Lib2-230615-antibody-monomeric-ACE2-25.899048:
+      concentration: 25.89
+      use_in_fit: true
+     Lib2-230615-antibody-monomeric-ACE2-77.697144:
+      concentration: 77.69
+      use_in_fit: true
+     Lib2-230615-antibody-monomeric-ACE2-233.091432:
+      concentration: 233.09
+      use_in_fit: true
+
+  Lib1-230613-dimeric-ACE2:
+    neut_standard_name: neut_standard
+    prob_escape_filters: *prob_escape_filters_default
+    polyclonal_params: *ACE2_polyclonal_params_default
+    escape_plot_kwargs: *escape_plot_kwargs_default
+    plot_hide_stats: *ACE2_plot_hide_stats_default
+    no_antibody_sample: Lib1-230613-no-antibody-control
+    antibody_samples:
+     Lib1-230613-antibody-dimeric-ACE2-0.21:
+      concentration: 0.21
+      use_in_fit: true
+     Lib1-230613-antibody-dimeric-ACE2-0.63:
+      concentration: 0.63
+      use_in_fit: true
+     Lib1-230613-antibody-dimeric-ACE2-1.89:
+      concentration: 1.89
+      use_in_fit: true
+     Lib1-230613-antibody-dimeric-ACE2-5.67:
+      concentration: 5.67
+      use_in_fit: true
+     Lib1-230613-antibody-dimeric-ACE2-17.01:
+      concentration: 17.01
+      use_in_fit: true
+
+  Lib2-230613-dimeric-ACE2:
+    neut_standard_name: neut_standard
+    prob_escape_filters: *prob_escape_filters_default
+    polyclonal_params: *ACE2_polyclonal_params_default
+    escape_plot_kwargs: *escape_plot_kwargs_default
+    plot_hide_stats: *ACE2_plot_hide_stats_default
+    no_antibody_sample: Lib2-230613-no-antibody-control
+    antibody_samples:
+     Lib2-230613-antibody-dimeric-ACE2-0.21:
+      concentration: 0.21
+      use_in_fit: true
+     Lib2-230613-antibody-dimeric-ACE2-0.63:
+      concentration: 0.63
+      use_in_fit: true
+     Lib2-230613-antibody-dimeric-ACE2-1.89:
+      concentration: 1.89
+      use_in_fit: true
+     Lib2-230613-antibody-dimeric-ACE2-5.67:
+      concentration: 5.67
+      use_in_fit: true
+     Lib2-230613-antibody-dimeric-ACE2-17.01:
+      concentration: 17.01
+      use_in_fit: true
+
+# --------------------------------------------------------------------------------------
+# Configuration for averaging/plotting selections for same antibody or soluble ACE2
+# --------------------------------------------------------------------------------------
+
+# Average/plot escape values from different selections with the same antibody/serum using
+# `avg_antibody_escape`. Each key is the name of an antibody/serum that has the following values:
+#   - `selections`: list of antibody selections for which we average escape
+#   - `icXX`: for the plot showing fold-change in ICXX (eg, IC90), what is XX (eg, 90)
+#   - `escape_plot_kwargs`: keyword arguments for `PolyclonalAverage.mut_escape_plot`
+#   - `plot_hide_stats`: dict giving data frames with stats for slider to hide mutations
+#   - `title`: title of plots
+#   - `legend`: legend added to plots
+
+# For soluble ACE2 experiments used to measure ACE2 binding, do exactly the same
+# except under the key `avg_ACE2_binding` rather than `avg_antibody_escape`.
+
+# Define defaults for each antibody/serum, used via the merge (<<) operator
+avg_antibody_escape_default: &avg_antibody_escape_default
+  icXX: 90
+  escape_plot_kwargs:
+    <<: *escape_plot_kwargs_default
+    avg_type: median
+    per_model_tooltip: true
+  plot_hide_stats: *plot_hide_stats_default
+  legend: |
+    Use the site zoom bar at the top to zoom in on specific sites. The line plot shows a summary statistic indicating of the mutation effects at each site. The heat map shows effects for individual mutations, with parental amino-acid identities indicated by x and gray indicating non-measured mutations. Mouse over points for details.
+
+    Options at the bottom of the plot let you modify the display, such as by selecting how many different variants a mutation must be seen in to be shown (*minimum times_seen*), how many different experimental selections the mutation was measured in (*minimum n_models*), what site summary statistic to show, etc.
+
+    You can filter by the functional effects of mutations. Mutations removed by this filter are shown as dark gray squares in the heat map to distinguish unmeasured mutations from ones measured to be deleterious.
+
+    The *minimum max* slider is useful to select the sites where mutations have the largest effect.
+
+# Define the antibodies/sera to average
+avg_antibody_escape:
+  mAb_52:
+    <<: *avg_antibody_escape_default
+    title: Antibody 52 escape
+    selections:
+      - Lib1-240216-antibody_52
+      - Lib2-240216-antibody_52
+
+# Define the ACE2 binding experiments to average
+avg_ACE2_binding_default: &avg_ACE2_binding_default
+  <<: *avg_antibody_escape_default
+  icXX: 50  # IC50
+
+avg_ACE2_binding:
+  monomeric_ACE2:
+    <<: *avg_ACE2_binding_default
+    title: binding for monomeric ACE2
+    plot_hide_stats: *ACE2_plot_hide_stats_default
+    selections:
+      - Lib1-230615-monomeric-ACE2
+      - Lib2-230615-monomeric-ACE2
+
+  dimeric_ACE2:
+    <<: *avg_ACE2_binding_default
+    title: binding map for dimeric ACE2
+    plot_hide_stats: *ACE2_plot_hide_stats_default
+    selections:
+      - Lib1-230613-dimeric-ACE2
+      - Lib2-230613-dimeric-ACE2
