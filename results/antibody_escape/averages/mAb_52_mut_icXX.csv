@@ -1,4 +1,4 @@
-site,wildtype,mutant,log2 fold change IC99 mean,log2 fold change IC99 median,n_models,times_seen,frac_models,Lib1-240216-antibody_52,Lib2-240216-antibody_52
+site,wildtype,mutant,log2 fold change IC90 mean,log2 fold change IC90 median,n_models,times_seen,frac_models,Lib1-240216-antibody_52,Lib2-240216-antibody_52
 331,N,A,-0.0312,-0.0312,2,15.25,1,-0.007093,-0.0553
 331,N,C,-0.001722,-0.001722,2,14.25,1,-0.00218,-0.001264
 331,N,D,0.2493,0.2493,2,27.25,1,0.4321,0.06646

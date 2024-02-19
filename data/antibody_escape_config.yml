@@ -302,7 +302,7 @@ ACE2_selections:
 
 # Define defaults for each antibody/serum, used via the merge (<<) operator
 avg_antibody_escape_default: &avg_antibody_escape_default
-  icXX: 99
+  icXX: 90
   show_icXX_in_docs: true
   escape_plot_kwargs:
     <<: *escape_plot_kwargs_default
