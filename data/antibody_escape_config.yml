@@ -93,13 +93,13 @@ polyclonal_params_default: &polyclonal_params_default
 # keyword arguments to `Polyclonal.mut_escape_plot`
 escape_plot_kwargs_default: &escape_plot_kwargs_default
   addtl_slider_stats:
-    times_seen: 4
+    times_seen: 3
   addtl_tooltip_stats:
     - sequential_site
   heatmap_max_at_least: 2
   heatmap_min_at_least: -2
-  heatmap_max_fixed: 2.3
-  heatmap_min_fixed: -2
+  # heatmap_max_fixed: 4
+  # heatmap_min_fixed: -2
   init_floor_at_zero: false
   init_site_statistic: sum
   site_zoom_bar_color_col: region  # supplied in `site_numbering_map`
@@ -117,13 +117,13 @@ plot_hide_stats_default: &plot_hide_stats_default
   functional effect:
     csv: results/func_effects/averages/293T_high_ACE2_entry_func_effects.csv
     csv_col: effect
-    init: -1.5
+    init: -2
     min_filters:
       times_seen: 4
   ACE2 binding:
     csv: results/ACE2_binding/averages/monomeric_ACE2_mut_effect.csv
     csv_col: ACE2 binding_mean
-    init: -1.5
+    init: -2
     min_filters:
       times_seen: 4
 
@@ -302,7 +302,8 @@ ACE2_selections:
 
 # Define defaults for each antibody/serum, used via the merge (<<) operator
 avg_antibody_escape_default: &avg_antibody_escape_default
-  icXX: 90
+  icXX: 99
+  show_icXX_in_docs: true
   escape_plot_kwargs:
     <<: *escape_plot_kwargs_default
     avg_type: median
