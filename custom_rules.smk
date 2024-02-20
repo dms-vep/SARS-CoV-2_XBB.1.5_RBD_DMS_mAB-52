@@ -21,6 +21,24 @@ rule spatial_distances:
         "scripts/spatial_distances.py"
 
 
+rule escape_logos:
+    """Make logo plots of escape."""
+    input:
+        summary="results/summaries/summary.csv",
+        per_antibody_escape="results/summaries/per_antibody_escape.csv",
+    output:
+        pdf="results/escape_logos/escape_logos.pdf",
+    log:
+        notebook="notebooks/logs/escape_logos.ipynb",
+    conda:
+        os.path.join(config["pipeline_path"], "environment.yml"),
+    notebook:
+        "notebooks/escape_logos.py.ipynb"
+
+
+other_target_files.append(rules.escape_logos.output.pdf)
+
+
 # Files (Jupyter notebooks, HTML plots, or CSVs) that you want included in
 # the HTML docs should be added to the nested dict `docs`:
 docs["Additional data files"] = {
